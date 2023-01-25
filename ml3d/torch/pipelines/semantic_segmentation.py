@@ -18,7 +18,7 @@ from ..modules.losses import SemSegLoss, filter_valid_label
 from ..modules.metrics import SemSegMetric
 from ...utils import make_dir, PIPELINE, get_runid, code2md
 from ...datasets import InferenceDummySplit
-
+torch.multiprocessing.set_start_method('spawn')
 log = logging.getLogger(__name__)
 
 
@@ -347,8 +347,7 @@ class SemanticSegmentation(BasePipeline):
             train_split,
             batch_size=cfg.batch_size,
             sampler=get_sampler(train_sampler),
-            num_workers=cfg.get('num_workers', 2),
-            pin_memory=cfg.get('pin_memory', True),
+            num_workers=0,
             collate_fn=self.batcher.collate_fn,
             worker_init_fn=lambda x: np.random.seed(x + np.uint32(
                 torch.utils.data.get_worker_info().seed))
@@ -368,8 +367,7 @@ class SemanticSegmentation(BasePipeline):
             valid_split,
             batch_size=cfg.val_batch_size,
             sampler=get_sampler(valid_sampler),
-            num_workers=cfg.get('num_workers', 2),
-            pin_memory=cfg.get('pin_memory', True),
+            num_workers=0,
             collate_fn=self.batcher.collate_fn,
             worker_init_fn=lambda x: np.random.seed(x + np.uint32(
                 torch.utils.data.get_worker_info().seed)))
