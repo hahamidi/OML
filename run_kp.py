@@ -24,7 +24,7 @@ cfg_file = "/content/OML/ml3d/configs/kpconv_s3dis.yml"
 cfg = Config.load_from_file(cfg_file)
 
 model = KPFCNN(**cfg.model)
-cfg.dataset['dataset_path'] = "/content/OML/Stanford3dDataset_v1.2_Aligned_Version"
+cfg.dataset['dataset_path'] = "/content/Stanford3dDataset_v1.2_Aligned_Version"
 dataset = S3DIS(cfg.dataset.pop('dataset_path', None), **cfg.dataset)
 pipeline = SemanticSegmentation(model, dataset=dataset, device="gpu", **cfg.pipeline)
 pipeline.run_train()
