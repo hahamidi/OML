@@ -429,6 +429,8 @@ class SemanticSegmentation(BasePipeline):
                         results, inputs['data'], epoch)
 
             self.scheduler.step()
+            print("IOU Train",self.metric_train.iou())
+            print("LOSS Train",np.mean(self.losses))
 
             # --------------------- validation
             model.eval()
@@ -457,6 +459,8 @@ class SemanticSegmentation(BasePipeline):
                             results, inputs['data'], epoch)
 
             self.save_logs(writer, epoch)
+            print("IOU Val",self.metric_val.iou())
+            print("LOSS Val",np.mean(self.valid_losses))
 
             if epoch % cfg.save_ckpt_freq == 0 or epoch == cfg.max_epoch:
                 self.save_ckpt(epoch)

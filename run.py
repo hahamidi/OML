@@ -8,7 +8,8 @@ from ml3d.utils.config import Config
 from ml3d.torch.models.randlanet import RandLANet
 from ml3d.datasets.s3dis import S3DIS
 from  ml3d.torch.pipelines.semantic_segmentation import SemanticSegmentation
-import importlib
+import warnings
+warnings.filterwarnings("ignore")
 
 
 # Make some changes to the open3d.ml.torch module
