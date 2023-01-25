@@ -458,7 +458,7 @@ class SemanticSegmentation(BasePipeline):
 
             self.save_logs(writer, epoch)
             print("IOU Val",self.metric_val.iou())
-            print("LOSS Train",np.mean(self.losses))
+            print("LOSS Train",np.mean(self.valid_losses))
 
             if epoch % cfg.save_ckpt_freq == 0 or epoch == cfg.max_epoch:
                 self.save_ckpt(epoch)
