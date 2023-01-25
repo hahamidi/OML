@@ -21,7 +21,7 @@ from ...datasets import InferenceDummySplit
 
 log = logging.getLogger(__name__)
 
-
+torch.multiprocessing.set_start_method('spawn')
 class SemanticSegmentation(BasePipeline):
     """This class allows you to perform semantic segmentation for both training
     and inference using the Torch. This pipeline has multiple stages: Pre-
