@@ -309,6 +309,38 @@ class SemanticSegmentation(BasePipeline):
                 self.test_labels[self.curr_cloud_id][proj_inds])
             self.complete_infer = True
 
+    def remove_random_color(self,point_cloud,block_size = 0.5,number_of_block = 20):
+            indexes_of_remove = np.full((1,point_cloud.shape[0]), False, dtype=bool)[0]
+            for rr in range(number_of_block):
+                block_size =  (np.random.randint(10, size=1)[0] / 25) + 0.2
+                index_random =  np.random.randint(point_cloud.shape[0], size=1)[0]
+
+                random_point = point_cloud[index_random][0:3]
+                selectX = (point_cloud[:,0] < (random_point[0]+block_size)) & ((random_point[0]-block_size) < point_cloud[:,0])
+                selectY = (point_cloud[:,1] < (random_point[1]+block_size)) & ((random_point[1]-block_size) < point_cloud[:,1])
+                selectZ = (point_cloud[:,2] < (random_point[2]+block_size)) & ((random_point[2]-block_size) < point_cloud[:,2])
+                select = selectX & selectY & selectZ
+                
+                
+                indexes_of_remove = indexes_of_remove | select
+                
+            point_cloud[indexes_of_remove,3:6] = [1,0,0]
+
+            return point_cloud , indexes_of_remove
+
+    def batch_remove_blocks(self,batch):
+            numpy_array_batch = batch.copy()
+            indexs = batch.copy()
+            for i,item in enumerate(numpy_array_batch):
+                point_cloud, removed_indexs = self.remove_random_color(item.T)
+                numpy_array_batch[i] = point_cloud.T
+                indexs[i] = removed_indexs
+
+            return numpy_array_batch, indexs
+
+
+
+
     def run_train(self):
         torch.manual_seed(self.rng.integers(np.iinfo(
             np.int32).max))  # Random reproducible seed for torch
@@ -405,6 +437,10 @@ class SemanticSegmentation(BasePipeline):
                 if hasattr(inputs['data'], 'to'):
                     inputs['data'].to(device)
                 self.optimizer.zero_grad()
+                feat = inputs['data']['feat'].copy()
+                feat = feat.numpy( force=True)
+                feat,removes_ids = self.batch_remove_blocks(feat)
+                inputs['data']['feat'] = torch.from_numpy(feat)
                 results = model(inputs['data'])
                 loss, gt_labels, predict_scores = model.get_loss(
                     Loss, results, inputs, device)
