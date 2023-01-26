@@ -423,7 +423,7 @@ class SemanticSegmentation(BasePipeline):
         record_summary = cfg.get('summary').get('record_for', [])
 
         log.info("Started training")
-
+        loss_l1 = nn.L1Loss()
         for epoch in range(0, cfg.max_epoch + 1):
 
             log.info(f'=== EPOCH {epoch:d}/{cfg.max_epoch:d} ===')
@@ -438,12 +438,16 @@ class SemanticSegmentation(BasePipeline):
                     inputs['data'].to(device)
                 self.optimizer.zero_grad()
                 feat = inputs['data']['feat'].copy()
+                colors = inputs['data']['feat'][:,3:6,:].copy()
                 feat = feat.numpy( force=True)
                 feat,removes_ids = self.batch_remove_blocks(feat)
                 inputs['data']['feat'] = torch.from_numpy(feat)
                 results = model(inputs['data'])
-                loss, gt_labels, predict_scores = model.get_loss(
-                    Loss, results, inputs, device)
+                print(colors)
+                print(results)
+                # loss, gt_labels, predict_scores = model.get_loss(
+                #     Loss, results, inputs, device)
+                loss_l1(results,colors)
 
                 if predict_scores.size()[-1] == 0:
                     continue
