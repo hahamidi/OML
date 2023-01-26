@@ -22,6 +22,8 @@ cfg_file = "/content/OML/ml3d/configs/randlanet_s3dis.yml"
 cfg = Config.load_from_file(cfg_file)
 
 model = RandLANet(**cfg.model)
+model.classifier.add_module('last',nn.Sigmoid())
+
 cfg.dataset['dataset_path'] = "/content/Stanford3dDataset_v1.2_Aligned_Version"
 dataset = S3DIS(cfg.dataset.pop('dataset_path', None), **cfg.dataset)
 pipeline = SemanticSegmentation(model, dataset=dataset, device="gpu", **cfg.pipeline)
