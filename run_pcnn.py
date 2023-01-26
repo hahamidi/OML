@@ -8,7 +8,7 @@ from ml3d.utils.config import Config
 from ml3d.torch.models.randlanet import RandLANet
 from ml3d.torch.models.pvcnn import PVCNN
 from ml3d.datasets.s3dis import S3DIS
-from  ml3d.torch.pipelines.semantic_segmentation import SemanticSegmentation
+from  ml3d.torch.pipelines.coloring import SemanticSegmentation
 import warnings
 warnings.filterwarnings("ignore")
 
@@ -26,6 +26,7 @@ cfg = Config.load_from_file(cfg_file)
 model = PVCNN(**cfg.model)
 # model.classifier[4]= nn.Conv2d(256, 3, kernel_size=(1, 1), stride=(1, 1))
 model.classifier.add_module("sigmoid", nn.Sigmoid())
+print(model)
 cfg.dataset['dataset_path'] = "/content/Stanford3dDataset_v1.2_Aligned_Version"
 dataset = S3DIS(cfg.dataset.pop('dataset_path', None), **cfg.dataset)
 pipeline = SemanticSegmentation(model, dataset=dataset, device="gpu", **cfg.pipeline)
