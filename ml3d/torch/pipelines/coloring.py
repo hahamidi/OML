@@ -21,7 +21,7 @@ from ...datasets import InferenceDummySplit
 
 log = logging.getLogger(__name__)
 
-
+torch.multiprocessing.set_start_method('spawn')
 class SemanticSegmentation(BasePipeline):
     """This class allows you to perform semantic segmentation for both training
     and inference using the Torch. This pipeline has multiple stages: Pre-
@@ -309,6 +309,38 @@ class SemanticSegmentation(BasePipeline):
                 self.test_labels[self.curr_cloud_id][proj_inds])
             self.complete_infer = True
 
+    def remove_random_color(self,point_cloud,block_size = 0.5,number_of_block = 20):
+            indexes_of_remove = np.full((1,point_cloud.shape[0]), False, dtype=bool)[0]
+            for rr in range(number_of_block):
+                block_size =  (np.random.randint(10, size=1)[0] / 25) + 0.2
+                index_random =  np.random.randint(point_cloud.shape[0], size=1)[0]
+
+                random_point = point_cloud[index_random][0:3]
+                selectX = (point_cloud[:,0] < (random_point[0]+block_size)) & ((random_point[0]-block_size) < point_cloud[:,0])
+                selectY = (point_cloud[:,1] < (random_point[1]+block_size)) & ((random_point[1]-block_size) < point_cloud[:,1])
+                selectZ = (point_cloud[:,2] < (random_point[2]+block_size)) & ((random_point[2]-block_size) < point_cloud[:,2])
+                select = selectX & selectY & selectZ
+                
+                
+                indexes_of_remove = indexes_of_remove | select
+                
+            point_cloud[indexes_of_remove,3:6] = [1,0,0]
+
+            return point_cloud , indexes_of_remove
+
+    def batch_remove_blocks(self,batch):
+            numpy_array_batch = batch.copy()
+            indexs = []
+            for i,item in enumerate(numpy_array_batch):
+                point_cloud, removed_indexs = self.remove_random_color(item.T)
+                numpy_array_batch[i] = point_cloud.T
+                indexs.append(removed_indexs)
+            return numpy_array_batch, indexs
+
+
+
+
+
     def run_train(self):
         torch.manual_seed(self.rng.integers(np.iinfo(
             np.int32).max))  # Random reproducible seed for torch
@@ -347,8 +379,7 @@ class SemanticSegmentation(BasePipeline):
             train_split,
             batch_size=cfg.batch_size,
             sampler=get_sampler(train_sampler),
-            num_workers=cfg.get('num_workers', 2),
-            pin_memory=cfg.get('pin_memory', True),
+            num_workers=0,
             collate_fn=self.batcher.collate_fn,
             worker_init_fn=lambda x: np.random.seed(x + np.uint32(
                 torch.utils.data.get_worker_info().seed))
@@ -368,8 +399,7 @@ class SemanticSegmentation(BasePipeline):
             valid_split,
             batch_size=cfg.val_batch_size,
             sampler=get_sampler(valid_sampler),
-            num_workers=cfg.get('num_workers', 2),
-            pin_memory=cfg.get('pin_memory', True),
+            num_workers=0,
             collate_fn=self.batcher.collate_fn,
             worker_init_fn=lambda x: np.random.seed(x + np.uint32(
                 torch.utils.data.get_worker_info().seed)))
@@ -393,7 +423,7 @@ class SemanticSegmentation(BasePipeline):
         record_summary = cfg.get('summary').get('record_for', [])
 
         log.info("Started training")
-
+        loss_l1 = torch.nn.MSELoss()
         for epoch in range(0, cfg.max_epoch + 1):
 
             log.info(f'=== EPOCH {epoch:d}/{cfg.max_epoch:d} ===')
@@ -402,17 +432,41 @@ class SemanticSegmentation(BasePipeline):
             self.metric_val.reset()
             self.losses = []
             model.trans_point_sampler = train_sampler.get_point_sampler()
-
+            iii = 0
             for step, inputs in enumerate(tqdm(train_loader, desc='training')):
+                iii+=1
                 if hasattr(inputs['data'], 'to'):
                     inputs['data'].to(device)
                 self.optimizer.zero_grad()
+                features = inputs['data']['feat']
+                colors = inputs['data']['feat'][:,3:6,:]
+                features = features.numpy()
+                features,removes_ids = self.batch_remove_blocks(features)
+                inputs['data']['feat'] = torch.from_numpy(features)
                 results = model(inputs['data'])
-                loss, gt_labels, predict_scores = model.get_loss(
-                    Loss, results, inputs, device)
+                colors = colors.permute( 0,2, 1).to("cuda")
+                removes_ids = torch.from_numpy(np.array(removes_ids)).to("cuda")
+                expanded_index = removes_ids.unsqueeze(-1).repeat(1, 1, 3)
 
-                if predict_scores.size()[-1] == 0:
-                    continue
+                  # Save the numpy array to a file
+                if iii == 15 and epoch == 10:
+                    np.save("res.npy", results.detach().cpu().numpy())
+                    np.save("color.npy", colors.detach().cpu().numpy())
+                    np.save("data.npy", inputs['data']['feat'].cpu().numpy())
+         
+
+  
+
+        
+                colors = colors[expanded_index]
+                results = results[expanded_index]
+                
+      
+         
+                # loss, gt_labels, predict_scores = model.get_loss(
+                #     Loss, results, inputs, device)
+                loss = loss_l1(results,colors)*20
+                print(loss)
 
                 loss.backward()
                 if model.cfg.get('grad_clip_norm', -1) > 0:
@@ -420,50 +474,15 @@ class SemanticSegmentation(BasePipeline):
                                                     model.cfg.grad_clip_norm)
                 self.optimizer.step()
 
-                self.metric_train.update(predict_scores, gt_labels)
 
                 self.losses.append(loss.cpu().item())
                 # Save only for the first pcd in batch
-                if 'train' in record_summary and step == 0:
-                    self.summary['train'] = self.get_3d_summary(
-                        results, inputs['data'], epoch)
+
 
             self.scheduler.step()
-            print("IOU Train",self.metric_train.iou())
+
             print("LOSS Train",np.mean(self.losses))
 
-            # --------------------- validation
-            model.eval()
-            self.valid_losses = []
-            model.trans_point_sampler = valid_sampler.get_point_sampler()
-
-            with torch.no_grad():
-                for step, inputs in enumerate(
-                        tqdm(valid_loader, desc='validation')):
-                    if hasattr(inputs['data'], 'to'):
-                        inputs['data'].to(device)
-
-                    results = model(inputs['data'])
-                    loss, gt_labels, predict_scores = model.get_loss(
-                        Loss, results, inputs, device)
-
-                    if predict_scores.size()[-1] == 0:
-                        continue
-
-                    self.metric_val.update(predict_scores, gt_labels)
-
-                    self.valid_losses.append(loss.cpu().item())
-                    # Save only for the first batch
-                    if 'valid' in record_summary and step == 0:
-                        self.summary['valid'] = self.get_3d_summary(
-                            results, inputs['data'], epoch)
-
-            self.save_logs(writer, epoch)
-            print("IOU Val",self.metric_val.iou())
-            print("LOSS Train",np.mean(self.valid_losses))
-
-            if epoch % cfg.save_ckpt_freq == 0 or epoch == cfg.max_epoch:
-                self.save_ckpt(epoch)
 
     def get_batcher(self, device, split='training'):
         """Get the batcher to be used based on the device and split."""
