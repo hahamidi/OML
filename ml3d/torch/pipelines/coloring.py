@@ -441,7 +441,7 @@ class SemanticSegmentation(BasePipeline):
                 features = inputs['data']['feat']
                 colors = inputs['data']['feat'][:,3:6,:]
                 features = features.numpy()
-                features,removes_ids = self.batch_remove_blocks(features)
+                features,removes_ids = self.batch_remove_blocks(features,number_of_block = epoch+3)
                 inputs['data']['feat'] = torch.from_numpy(features)
                 results = model(inputs['data'])
                 colors = colors.permute( 0,2, 1).to("cuda")
