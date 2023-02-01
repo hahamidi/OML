@@ -309,10 +309,10 @@ class SemanticSegmentation(BasePipeline):
                 self.test_labels[self.curr_cloud_id][proj_inds])
             self.complete_infer = True
 
-    def remove_random_color(self,point_cloud,block_size = 0.5,number_of_block = 20):
+    def remove_random_color(self,point_cloud,block_size = 0.5,number_of_block = 60):
             indexes_of_remove = np.full((1,point_cloud.shape[0]), False, dtype=bool)[0]
             for rr in range(number_of_block):
-                block_size =  (np.random.randint(10, size=1)[0] / 25) + 0.2
+                block_size =  (np.random.randint(20, size=1)[0] / 25) + 0.1
                 index_random =  np.random.randint(point_cloud.shape[0], size=1)[0]
 
                 random_point = point_cloud[index_random][0:3]
@@ -449,10 +449,10 @@ class SemanticSegmentation(BasePipeline):
                 expanded_index = removes_ids.unsqueeze(-1).repeat(1, 1, 3)
 
                   # Save the numpy array to a file
-                if iii == 15 and epoch == 10:
-                    np.save("res.npy", results.detach().cpu().numpy())
-                    np.save("color.npy", colors.detach().cpu().numpy())
-                    np.save("data.npy", inputs['data']['feat'].cpu().numpy())
+                if iii == 15:
+                    np.save("res"+str(epoch)+".npy", results.detach().cpu().numpy())
+                    np.save("color"+str(epoch)+".npy", colors.detach().cpu().numpy())
+                    np.save("data"+str(epoch)+".npy", inputs['data']['feat'].cpu().numpy())
          
 
   
