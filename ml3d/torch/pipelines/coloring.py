@@ -309,10 +309,10 @@ class SemanticSegmentation(BasePipeline):
                 self.test_labels[self.curr_cloud_id][proj_inds])
             self.complete_infer = True
 
-    def remove_random_color(self,point_cloud,block_size = 0.5,number_of_block = 60):
+    def remove_random_color(self,point_cloud,block_size = 0.5,number_of_block = 50):
             indexes_of_remove = np.full((1,point_cloud.shape[0]), False, dtype=bool)[0]
             for rr in range(number_of_block):
-                block_size =  (np.random.randint(20, size=1)[0] / 25) + 0.1
+                block_size =  (np.random.randint(20, size=1)[0] / 80) + 0.1
                 index_random =  np.random.randint(point_cloud.shape[0], size=1)[0]
 
                 random_point = point_cloud[index_random][0:3]
