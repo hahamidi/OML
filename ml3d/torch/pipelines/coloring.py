@@ -328,11 +328,11 @@ class SemanticSegmentation(BasePipeline):
 
             return point_cloud , indexes_of_remove
 
-    def batch_remove_blocks(self,batch):
+    def batch_remove_blocks(self,batch,epoch):
             numpy_array_batch = batch.copy()
             indexs = []
             for i,item in enumerate(numpy_array_batch):
-                point_cloud, removed_indexs = self.remove_random_color(item.T)
+                point_cloud, removed_indexs = self.remove_random_color(item.T,number_of_block = epoch+3)
                 numpy_array_batch[i] = point_cloud.T
                 indexs.append(removed_indexs)
             return numpy_array_batch, indexs
@@ -441,7 +441,7 @@ class SemanticSegmentation(BasePipeline):
                 features = inputs['data']['feat']
                 colors = inputs['data']['feat'][:,3:6,:]
                 features = features.numpy()
-                features,removes_ids = self.batch_remove_blocks(features,number_of_block = epoch+4)
+                features,removes_ids = self.batch_remove_blocks(features,epoch = epoch)
                 inputs['data']['feat'] = torch.from_numpy(features)
                 results = model(inputs['data'])
                 colors = colors.permute( 0,2, 1).to("cuda")
